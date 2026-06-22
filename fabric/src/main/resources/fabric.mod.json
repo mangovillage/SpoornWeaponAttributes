@@ -25,9 +25,10 @@
     "spoornweaponattributes-common.mixins.json"
   ],
   "depends": {
-    "fabricloader": "*",
-    "fabric": "*",
-    "minecraft": ">=1.20",
-    "cloth-config2": "*"
+    "fabricloader": ">=0.19.3",
+    "fabric-api": ">=0.152.2+26.2",
+    "minecraft": ">=26.2 <26.3",
+    "cloth-config2": ">=26.2.155",
+    "java": ">=25"
   }
 }

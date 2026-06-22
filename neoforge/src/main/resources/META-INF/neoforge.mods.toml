@@ -1,5 +1,5 @@
 modLoader = "javafml"
-loaderVersion = "[47,)"
+loaderVersion = "[1,)"
 issueTrackerURL = "https://github.com/spoorn/SpoornWeaponAttributes/issues"
 license = "MIT"
 
@@ -13,23 +13,26 @@ Adds randomized weapon attributes
 '''
 #logoFile = ""
 
+[[mixins]]
+config = "spoornweaponattributes-common.mixins.json"
+
 [[dependencies.spoornweaponattributes]]
-modId = "forge"
+modId = "neoforge"
 mandatory = true
-versionRange = "[47,)"
+versionRange = "[26.2,)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.spoornweaponattributes]]
 modId = "minecraft"
 mandatory = true
-versionRange = "[1.20,)"
+versionRange = "[26.2,26.3)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.spoornweaponattributes]]
 modId = "cloth_config"
 mandatory = true
-versionRange = "[11,)"
+versionRange = "[26.2,)"
 ordering = "NONE"
 side = "CLIENT"

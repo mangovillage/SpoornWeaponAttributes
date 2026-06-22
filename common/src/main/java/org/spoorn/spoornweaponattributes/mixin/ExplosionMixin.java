@@ -1,8 +1,11 @@
 package org.spoorn.spoornweaponattributes.mixin;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.ServerExplosion;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -13,16 +16,19 @@ import org.spoorn.spoornweaponattributes.entity.damage.SWAExplosionDamageSource;
 /**
  * TODO: configurations for these
  */
-@Mixin(Explosion.class)
+@Mixin(ServerExplosion.class)
 public class ExplosionMixin {
 
     @Shadow @Final private DamageSource damageSource;
     
-    @Redirect(method = "collectBlocksAndDamageEntities", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;isImmuneToExplosion()Z"))
-    private boolean disableExplosionOnNonLivingEntitiesAndPlayers(Entity instance) {
-        if ((this.damageSource instanceof SWAExplosionDamageSource) && (!instance.isLiving() || instance.isPlayer())) {
+    @Redirect(method = {
+            "hurtEntities()V",
+            "hurtEntities(Ljava/util/List;)V"
+    }, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;ignoreExplosion(Lnet/minecraft/world/level/Explosion;)Z"))
+    private boolean disableExplosionOnNonLivingEntitiesAndPlayers(Entity instance, Explosion explosion) {
+        if ((this.damageSource instanceof SWAExplosionDamageSource) && (!(instance instanceof LivingEntity) || instance instanceof Player)) {
             return true;
         }
-        return instance.isImmuneToExplosion();
+        return instance.ignoreExplosion(explosion);
     }
 }

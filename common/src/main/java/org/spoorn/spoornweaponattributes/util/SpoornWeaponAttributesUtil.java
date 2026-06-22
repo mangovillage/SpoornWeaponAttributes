@@ -1,21 +1,22 @@
 package org.spoorn.spoornweaponattributes.util;
 
 import lombok.extern.log4j.Log4j2;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ToolItem;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import org.spoorn.spoornweaponattributes.att.Attribute;
 import org.spoorn.spoornweaponattributes.att.Roller;
 import org.spoorn.spoornweaponattributes.config.Expressions;
 import org.spoorn.spoornweaponattributes.config.ModConfig;
-import org.spoorn.spoornweaponattributes.entity.damage.SWAExplosionDamageSource;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Consumer;
 
 /**
  * All generic utilities.
@@ -38,39 +39,54 @@ public final class SpoornWeaponAttributesUtil {
     public static final String SPOORN_LOOT_NBT_KEY = "spoornConfig";
 
     public static boolean shouldTryGenAttr(ItemStack stack) {
-        return stack.getItem() instanceof ToolItem;
+        return stack.has(DataComponents.WEAPON) || stack.has(DataComponents.TOOL);
     }
 
-    public static NbtCompound createAttributesSubNbt(NbtCompound root) {
-        NbtCompound res = new NbtCompound();
+    public static CompoundTag createAttributesSubNbt(CompoundTag root) {
+        CompoundTag res = new CompoundTag();
         root.put(NBT_KEY, res);
         return res;
     }
 
-    public static NbtCompound createAttributesSubNbtReturnRoot(NbtCompound root) {
-        NbtCompound res = new NbtCompound();
+    public static CompoundTag createAttributesSubNbtReturnRoot(CompoundTag root) {
+        CompoundTag res = new CompoundTag();
         root.put(NBT_KEY, res);
         return root;
     }
 
-    public static Optional<NbtCompound> getSWANbtIfPresent(ItemStack stack) {
-        if (stack.hasNbt()) {
-            NbtCompound root = stack.getNbt();
+    public static Optional<CompoundTag> getRootNbtIfPresent(ItemStack stack) {
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData != null && !customData.isEmpty()) {
+            return Optional.of(customData.copyTag());
+        }
+        return Optional.empty();
+    }
 
-            if (root != null && root.contains(SpoornWeaponAttributesUtil.NBT_KEY)) {
-                return Optional.of(root.getCompound(SpoornWeaponAttributesUtil.NBT_KEY));
-            }
+    public static boolean hasRootNbt(ItemStack stack) {
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        return customData != null && !customData.isEmpty();
+    }
+
+    public static void updateRootNbt(ItemStack stack, Consumer<CompoundTag> updater) {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, updater);
+    }
+
+    public static Optional<CompoundTag> getSWANbtIfPresent(ItemStack stack) {
+        Optional<CompoundTag> root = getRootNbtIfPresent(stack);
+        if (root.isPresent() && root.get().contains(SpoornWeaponAttributesUtil.NBT_KEY)) {
+            return Optional.of(root.get().getCompoundOrEmpty(SpoornWeaponAttributesUtil.NBT_KEY));
         }
         return Optional.empty();
     }
 
     public static boolean hasSWANbt(ItemStack stack) {
-        return stack.hasNbt() && stack.getNbt().contains(NBT_KEY);
+        Optional<CompoundTag> root = getRootNbtIfPresent(stack);
+        return root.isPresent() && root.get().contains(NBT_KEY);
     }
 
     public static boolean isRerollItem(ItemStack stack) {
         String rerollItem = ModConfig.get().rerollItem;
-        Optional<Item> item = Registries.ITEM.getOrEmpty(new Identifier(rerollItem));
+        Optional<Item> item = BuiltInRegistries.ITEM.getOptional(Identifier.parse(rerollItem));
         if (item.isEmpty()) {
             throw new RuntimeException("Reroll item " + rerollItem + " was not found in the registry!");
         }
@@ -79,7 +95,7 @@ public final class SpoornWeaponAttributesUtil {
 
     public static boolean isUpgradeItem(ItemStack stack) {
         String upgradeItem = ModConfig.get().upgradeItem;
-        Optional<Item> item = Registries.ITEM.getOrEmpty(new Identifier(upgradeItem));
+        Optional<Item> item = BuiltInRegistries.ITEM.getOptional(Identifier.parse(upgradeItem));
         if (item.isEmpty()) {
             throw new RuntimeException("Upgrade item " + upgradeItem + " was not found in the registry!");
         }
@@ -124,11 +140,11 @@ public final class SpoornWeaponAttributesUtil {
         return nextGaussian;
     }
 
-    public static void rollOrUpgradeNbt(NbtCompound root) {
-        if (root.getBoolean(UPGRADE_NBT_KEY)) {
+    public static void rollOrUpgradeNbt(CompoundTag root) {
+        if (root.getBooleanOr(UPGRADE_NBT_KEY, false)) {
             SpoornWeaponAttributesUtil.upgradeAttributes(root);
             root.remove(UPGRADE_NBT_KEY);
-        } else if (root.getBoolean(REROLL_NBT_KEY)) {
+        } else if (root.getBooleanOr(REROLL_NBT_KEY, false)) {
             // Technically this is redundant as AnvilScreenHandlerMixin removes the NBT_KEY causing a reroll as soon as the item ticks in an inventory
             SpoornWeaponAttributesUtil.rollAttributes(root);
             root.remove(REROLL_NBT_KEY);
@@ -137,9 +153,9 @@ public final class SpoornWeaponAttributesUtil {
 
 
     // Apply attributes
-    public static void rollAttributes(NbtCompound root) {
+    public static void rollAttributes(CompoundTag root) {
         if (!root.contains(SpoornWeaponAttributesUtil.NBT_KEY) && !root.contains(SPOORN_LOOT_NBT_KEY)) {
-            NbtCompound nbt = SpoornWeaponAttributesUtil.createAttributesSubNbt(root);
+            CompoundTag nbt = SpoornWeaponAttributesUtil.createAttributesSubNbt(root);
             //System.out.println("Initial Nbt: " + nbt);
 
             for (Map.Entry<String, Attribute> entry : Attribute.VALUES.entrySet()) {
@@ -147,7 +163,7 @@ public final class SpoornWeaponAttributesUtil {
                 Attribute att = entry.getValue();
 
                 if (SpoornWeaponAttributesUtil.shouldEnable(att.chance)) {
-                    NbtCompound newNbt = new NbtCompound();
+                    CompoundTag newNbt = new CompoundTag();
                     float bonusDamage;
                     switch (name) {
                         case Attribute.CRIT_NAME:
@@ -190,19 +206,19 @@ public final class SpoornWeaponAttributesUtil {
     }
 
     // Upgrade stats if applicable
-    public static void upgradeAttributes(NbtCompound root) {
+    public static void upgradeAttributes(CompoundTag root) {
         if (!root.contains(SPOORN_LOOT_NBT_KEY)) {
             if (!root.contains(SpoornWeaponAttributesUtil.NBT_KEY)) {
                 SpoornWeaponAttributesUtil.createAttributesSubNbtReturnRoot(root);
             }
-            NbtCompound nbt = root.getCompound(SpoornWeaponAttributesUtil.NBT_KEY);
+            CompoundTag nbt = root.getCompoundOrEmpty(SpoornWeaponAttributesUtil.NBT_KEY);
 
             for (Map.Entry<String, Attribute> entry : Attribute.VALUES.entrySet()) {
                 String name = entry.getKey();
                 Attribute att = entry.getValue();
 
                 if (SpoornWeaponAttributesUtil.shouldEnable(att.chance)) {
-                    NbtCompound newNbt = nbt.contains(name) ? nbt.getCompound(name) : new NbtCompound();
+                    CompoundTag newNbt = nbt.contains(name) ? nbt.getCompoundOrEmpty(name) : new CompoundTag();
 
                     float bonusDamage;
                     switch (name) {
@@ -245,8 +261,8 @@ public final class SpoornWeaponAttributesUtil {
         }
     }
 
-    private static void checkFloatUpgradeThenAdd(NbtCompound nbt, String attribute, float newValue) {
-        if (!nbt.contains(attribute) || nbt.getFloat(attribute) < newValue) {
+    private static void checkFloatUpgradeThenAdd(CompoundTag nbt, String attribute, float newValue) {
+        if (!nbt.contains(attribute) || nbt.getFloatOr(attribute, 0.0F) < newValue) {
             nbt.putFloat(attribute, newValue);
         }
     }
